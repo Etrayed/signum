@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"io"
 	"log"
 	"net"
+	"os"
 	"signum/config"
 	"signum/processor"
 	"time"
@@ -30,11 +32,11 @@ func main() {
 }
 
 func processConnection(connection net.Conn) {
-	connection.SetDeadline(time.Now().Add(10 * time.Second))
+	connection.SetDeadline(time.Now().Add(3 * time.Second))
 
 	err := processor.Process(connection)
 
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) || os.IsTimeout(err) {
 		return
 	}
 
