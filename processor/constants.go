@@ -1,0 +1,13 @@
+package processor
+
+const HANDSHAKE_HANDSHAKE = 0x00
+const HANDSHAKE_STATE_STATUS = 1
+const HANDSHAKE_STATE_LOGIN = 2
+
+const STATUS_REQUEST = 0x00
+const STATUS_RESPONSE = 0x00
+const STATUS_PING = 0x01
+const STATUS_PONG = 0x01
+
+const LOGIN_START = 0x00
+const LOGIN_KICK = 0x00
