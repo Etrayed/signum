@@ -34,6 +34,8 @@ func main() {
 func processConnection(connection net.Conn) {
 	connection.SetDeadline(time.Now().Add(3 * time.Second))
 
+	defer connection.Close()
+
 	err := processor.Process(connection)
 
 	if errors.Is(err, io.EOF) || os.IsTimeout(err) {
@@ -43,6 +45,4 @@ func processConnection(connection net.Conn) {
 	if err != nil {
 		println("Failed to process "+connection.RemoteAddr().String()+":", err.Error())
 	}
-
-	defer connection.Close()
 }
