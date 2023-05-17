@@ -1,6 +1,9 @@
 package processor
 
 import (
+	"bufio"
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +12,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/unicode"
 )
 
 func Process(con net.Conn) error {
@@ -18,7 +24,80 @@ func Process(con net.Conn) error {
 		}
 	}()
 
+	if config.IsLegacyPingEnabled() {
+		smartReader := bufio.NewReader(con)
+
+		if val, err := smartReader.ReadByte(); val == 0xFE { // check for first legacy byte
+			if nextByte, err := smartReader.ReadByte(); nextByte == 0x01 { // check for second legacy byte
+				return doLegacyPing(con) // perform legacy ping
+			} else if err != nil {
+				return err
+			}
+
+			smartReader.UnreadByte()
+		} else if err != nil {
+			return err
+		}
+
+		smartReader.UnreadByte()
+	}
+
 	return expect(con, HANDSHAKE_HANDSHAKE, handshake)
+}
+
+var utf16beEncoder *encoding.Encoder
+
+func doLegacyPing(con net.Conn) error {
+	buf := &bytes.Buffer{}
+	_, err := buf.Write([]byte{0xFF})
+
+	if err != nil {
+		return err
+	}
+
+	legacyStatus, err := config.GetLegacyStatus()
+
+	if err != nil {
+		return err
+	}
+
+	if utf16beEncoder == nil {
+		utf16beEncoder = unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewEncoder()
+	}
+
+	responseStr := "\u00a71\u0000" // prefix
+
+	responseStr += strconv.FormatInt(int64(legacyStatus.Version.Protocol), 10) + "\u0000" // protocol version
+	responseStr += legacyStatus.Version.Name + "\u0000"                                   // protocol name
+	responseStr += legacyStatus.Motd + "\u0000"                                           // motd
+	responseStr += strconv.FormatInt(int64(legacyStatus.CurrentPlayers), 10) + "\u0000"   // current players
+	responseStr += strconv.FormatInt(int64(legacyStatus.MaxPlayers), 10)                  // max players
+
+	strBuf := &bytes.Buffer{}
+
+	if _, err := utf16beEncoder.Writer(strBuf).Write([]byte(responseStr)); err != nil {
+		return err
+	}
+
+	err = binary.Write(buf, binary.BigEndian, uint16(strBuf.Len()/2)) // write string length
+
+	if err != nil {
+		return err
+	}
+
+	if err != nil {
+		return err
+	}
+
+	_, err = strBuf.WriteTo(buf)
+
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(con, buf)
+
+	return err
 }
 
 func expect(con io.Reader, id int, handler func(io.Reader) error) error {

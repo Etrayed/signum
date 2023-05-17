@@ -7,7 +7,7 @@ WORKDIR /app
 ADD config/ config/
 ADD processor/ processor/
 
-COPY go.mod ./
+COPY go.mod go.sum ./
 RUN go mod download
 
 COPY *.go .
