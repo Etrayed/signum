@@ -1,7 +1,6 @@
 package processor
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"errors"
@@ -23,24 +22,6 @@ func Process(con net.Conn) error {
 			fmt.Println("Failed to handle "+con.RemoteAddr().String()+":", r)
 		}
 	}()
-
-	if config.IsLegacyPingEnabled() {
-		smartReader := bufio.NewReader(con)
-
-		if val, err := smartReader.ReadByte(); val == 0xFE { // check for first legacy byte
-			if nextByte, err := smartReader.ReadByte(); nextByte == 0x01 { // check for second legacy byte
-				return doLegacyPing(con) // perform legacy ping
-			} else if err != nil {
-				return err
-			}
-
-			smartReader.UnreadByte()
-		} else if err != nil {
-			return err
-		}
-
-		smartReader.UnreadByte()
-	}
 
 	return expect(con, HANDSHAKE_HANDSHAKE, handshake)
 }
@@ -101,7 +82,7 @@ func doLegacyPing(con net.Conn) error {
 }
 
 func expect(con io.Reader, id int, handler func(io.Reader) error) error {
-	_, err := readVarInt(con) // packet length
+	packetLen, err := readVarInt(con) // packet length
 
 	if err != nil {
 		return err
@@ -111,6 +92,10 @@ func expect(con io.Reader, id int, handler func(io.Reader) error) error {
 
 	if err != nil {
 		return err
+	}
+
+	if config.IsLegacyPingEnabled() && packetLen == 0xFE && actualId == 0x01 { // check for legacy ping
+		return doLegacyPing(con.(net.Conn))
 	}
 
 	if actualId == id {

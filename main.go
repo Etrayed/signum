@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -43,6 +44,6 @@ func processConnection(connection net.Conn) {
 	}
 
 	if err != nil {
-		println("Failed to process "+connection.RemoteAddr().String()+":", err.Error())
+		fmt.Println("Failed to process "+connection.RemoteAddr().String()+":", err.Error())
 	}
 }
