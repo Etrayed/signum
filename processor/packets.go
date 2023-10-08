@@ -94,7 +94,7 @@ func expect(con io.Reader, id int, handler func(io.Reader) error) error {
 		return err
 	}
 
-	if config.IsLegacyPingEnabled() && packetLen == 0xFE && actualId == 0x01 { // check for legacy ping
+	if id == HANDSHAKE_HANDSHAKE && config.IsLegacyPingEnabled() && packetLen == 0xFE && actualId == 0x01 { // check for legacy ping
 		return doLegacyPing(con.(net.Conn))
 	}
 
